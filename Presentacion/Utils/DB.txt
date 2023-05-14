@@ -1,0 +1,671 @@
+﻿CREATE TABLE productos (
+  id INT NOT NULL PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  descripcion VARCHAR(255),
+  precio DECIMAL(10, 2) NOT NULL,
+  existencia INT NOT NULL,
+  fecha_vencimiento DATE NOT NULL,
+  categoria VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE proveedores (
+  id INT NOT NULL PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  direccion VARCHAR(255),
+  telefono VARCHAR(20),
+  correo VARCHAR(255)
+);
+
+CREATE TABLE compras (
+  id INT NOT NULL PRIMARY KEY,
+  id_proveedor INT NOT NULL,
+  fecha DATE NOT NULL,
+  monto_total DECIMAL(10, 2) NOT NULL,
+  CONSTRAINT fk_compras_proveedores FOREIGN KEY (id_proveedor) REFERENCES proveedores(id)
+);
+
+CREATE TABLE detalles_compra (
+  id INT NOT NULL PRIMARY KEY,
+  id_compra INT NOT NULL,
+  id_producto INT NOT NULL,
+  cantidad INT NOT NULL,
+  precio_unitario DECIMAL(10, 2) NOT NULL,
+  CONSTRAINT fk_detalles_compra_compras FOREIGN KEY (id_compra) REFERENCES compras(id),
+  CONSTRAINT fk_detalles_compra_productos FOREIGN KEY (id_producto) REFERENCES productos(id)
+);
+
+CREATE TABLE ventas (
+  id INT NOT NULL PRIMARY KEY,
+  fecha DATE NOT NULL,
+  monto_total DECIMAL(10, 2) NOT NULL
+);
+
+CREATE TABLE detalles_venta (
+  id INT NOT NULL PRIMARY KEY,
+  id_venta INT NOT NULL,
+  id_producto INT NOT NULL,
+  cantidad INT NOT NULL,
+  precio_unitario DECIMAL(10, 2) NOT NULL,
+  CONSTRAINT fk_detalles_venta_ventas FOREIGN KEY (id_venta) REFERENCES ventas(id),
+  CONSTRAINT fk_detalles_venta_productos FOREIGN KEY (id_producto) REFERENCES productos(id)
+);
+
+CREATE TABLE RESUMEN
+(
+    ID INT IDENTITY PRIMARY KEY,
+    CODIGO  VARCHAR(20) NOT NULL,
+    NOMBRE VARCHAR(100) NOT NULL,
+    DESCRIPCION VARCHAR(255),
+    ESTADO BIT DEFAULT 1
+);
+GO
+
+CREATE TABLE DETALLE
+(
+    ID INT IDENTITY PRIMARY KEY,
+    IDRESUMEN INT,
+    CODIGO  VARCHAR(20) NOT NULL,
+    NOMBRE VARCHAR(100) NOT NULL,
+    DESCRIPCION VARCHAR(255),
+    VALOR VARCHAR(20),
+    ORDEN INT NOT NULL,
+    ADIC VARCHAR(100),
+    ADIC2 VARCHAR(100),
+    ADIC3 VARCHAR(100),
+    ESTADO BIT DEFAULT 1,
+    CONSTRAINT fk_resumen_detalle FOREIGN KEY (IDRESUMEN) REFERENCES RESUMEN(ID)
+);
+GO
+
+
+USE [DB_CONTROL]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_GenerateSQLForSP]    Script Date: 13/05/2023 18:48:16 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[usp_GenerateSQLForSP]
+    @tableName VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @sql NVARCHAR(MAX) = ''
+
+		--SP INSERTAR
+    
+    SELECT @sql = @sql + '                    IF EXISTS(SELECT 1 FROM sysobjects WHERE xtype = ''P'' AND name = ''USP_' + @tableName + '_INSERT'') DROP PROCEDURE USP_' + @tableName + '_INSERT; '
+    + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+    + 'CREATE PROCEDURE USP_' + @tableName + '_INSERT'
+    + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '@p' +  c.name + ' ' + 
+        CASE 
+            WHEN c.system_type_id IN (167, 175, 231, 239) THEN 'VARCHAR(100)'
+            WHEN c.system_type_id IN (56, 106, 108, 127, 165) THEN 'INT'
+            WHEN c.system_type_id IN (61, 109, 122) THEN 'DATETIME'
+            WHEN c.system_type_id = 104 THEN 'BIT'
+            ELSE 'VARCHAR(100)'
+        END + CASE 
+            WHEN c.is_nullable = 1 THEN ' '
+            ELSE ' '
+        END + ',' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName
+
+    SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+    + 'AS' + CHAR(13) + CHAR(10) 
+    + 'BEGIN' + CHAR(13) + CHAR(10) 
+    + '    INSERT INTO ' + @tableName + '(' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '        ' + c.name + ',' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName
+
+    SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) 
+    + '    )' + CHAR(13) + CHAR(10) 
+    + '    VALUES(' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '        @p' + c.name + ',' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName
+
+    SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) 
+    + '    );' + CHAR(13) + CHAR(10)
+    + 'END;' + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+
+	select @sql = @sql + CHAR(13) + CHAR(10);
+
+
+
+		--SP ACTUALIZAR
+	  SELECT @sql = @sql + 'IF EXISTS(SELECT 1 FROM sysobjects WHERE xtype = ''P'' AND name = ''USP_' + @tableName + '_UPDATE'') DROP PROCEDURE USP_' + @tableName + '_UPDATE; '
+    + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+    + 'CREATE PROCEDURE USP_' + @tableName + '_UPDATE'
+    + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '@p' + c.name + ' ' + 
+        CASE 
+            WHEN c.system_type_id IN (167, 175, 231, 239) THEN 'VARCHAR(100)'
+            WHEN c.system_type_id IN (56, 106, 108, 127, 165) THEN 'INT'
+            WHEN c.system_type_id IN (61, 109, 122) THEN 'DATETIME'
+            WHEN c.system_type_id = 104 THEN 'BIT'
+            ELSE 'VARCHAR(100)'
+        END + CASE 
+            WHEN c.is_nullable = 1 THEN ' '
+            ELSE ' '
+        END + ',' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName
+
+    SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+    + 'AS' + CHAR(13) + CHAR(10) 
+    + 'BEGIN' + CHAR(13) + CHAR(10) 
+    + '    UPDATE ' + @tableName + ' SET' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '        ' + c.name + ' = @p'+c.name +' ,' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName   AND  column_id >1;
+
+	SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) 
+	+'WHERE ' + CHAR(13) + CHAR(10) ;
+
+	  SELECT @sql = @sql + '        ' + c.name + '= @p'+c.name +';' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName  AND  column_id =1;
+
+
+    SET @sql = @sql +
+    + 'END;' + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+
+
+
+		select @sql = @sql + CHAR(13) + CHAR(10);
+
+		--SP ELIMINAR
+
+	  SELECT @sql = @sql + 'IF EXISTS(SELECT 1 FROM sysobjects WHERE xtype = ''P'' AND name = ''USP_' + @tableName + '_DELETE'') DROP PROCEDURE USP_' + @tableName + '_DELETE; '
+    + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+    + 'CREATE PROCEDURE USP_' + @tableName + '_DELETE '
+    + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '@p' + c.name + ' ' + 
+        CASE 
+            WHEN c.system_type_id IN (167, 175, 231, 239) THEN 'VARCHAR(100)'
+            WHEN c.system_type_id IN (56, 106, 108, 127, 165) THEN 'INT'
+            WHEN c.system_type_id IN (61, 109, 122) THEN 'DATETIME'
+            WHEN c.system_type_id = 104 THEN 'BIT'
+            ELSE 'VARCHAR(100)'
+        END + CASE 
+            WHEN c.is_nullable = 1 THEN ' '
+            ELSE ' '
+        END + ',' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName AND  column_id =1
+
+    SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+    + 'AS' + CHAR(13) + CHAR(10) 
+    + 'BEGIN' + CHAR(13) + CHAR(10) 
+    + '    DELETE FROM ' + @tableName + ' ' + CHAR(13) + CHAR(10)
+
+	SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) 
+	+'WHERE ' + CHAR(13) + CHAR(10) ;
+
+	  SELECT @sql = @sql + '        ' + c.name + '= @p'+c.name +';' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName  AND  column_id =1;
+
+
+    SET @sql = @sql +
+    + 'END;' + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+
+
+			select @sql = @sql + CHAR(13) + CHAR(10);
+
+		--SP OBTENER UNO
+
+	  SELECT @sql = @sql + 'IF EXISTS(SELECT 1 FROM sysobjects WHERE xtype = ''P'' AND name = ''USP_' + @tableName + '_GETONE'') DROP PROCEDURE USP_' + @tableName + '_GETONE; '
+    + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+    + 'CREATE PROCEDURE USP_' + @tableName + '_GETONE '
+    + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '@p' + c.name + ' ' + 
+        CASE 
+            WHEN c.system_type_id IN (167, 175, 231, 239) THEN 'VARCHAR(100)'
+            WHEN c.system_type_id IN (56, 106, 108, 127, 165) THEN 'INT'
+            WHEN c.system_type_id IN (61, 109, 122) THEN 'DATETIME'
+            WHEN c.system_type_id = 104 THEN 'BIT'
+            ELSE 'VARCHAR(100)'
+        END + CASE 
+            WHEN c.is_nullable = 1 THEN ' '
+            ELSE ' '
+        END + ',' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName AND  column_id =1
+
+    SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+    + 'AS' + CHAR(13) + CHAR(10) 
+    + 'BEGIN' + CHAR(13) + CHAR(10) 
+    + '    SELECT * FROM ' + @tableName + ' ' + CHAR(13) + CHAR(10)
+
+	SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) 
+	+'	    WHERE ' + CHAR(13) + CHAR(10) ;
+
+	  SELECT @sql = @sql + '        ' + c.name + '= @p'+c.name +';' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName  AND  column_id =1;
+
+
+    SET @sql = @sql +
+    + 'END;' + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+
+				select @sql = @sql + CHAR(13) + CHAR(10);
+
+		--SP PAGINADO
+
+	  SELECT @sql = @sql + 'IF EXISTS(SELECT 1 FROM sysobjects WHERE xtype = ''P'' AND name = ''USP_' + @tableName + '_PAGINATE'') DROP PROCEDURE USP_' + @tableName + '_PAGINATE; '
+    + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+    + 'CREATE PROCEDURE USP_' + @tableName + '_PAGINATE '
+    + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+
+	set @sql = @sql +'@pPagina	INT =0,' + CHAR(13) + CHAR(10)
+	+'@pFilasPagina INT =10,' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '@p' + c.name + ' ' + 
+        CASE 
+            WHEN c.system_type_id IN (167, 175, 231, 239) THEN 'VARCHAR(100)'
+            WHEN c.system_type_id IN (56, 106, 108, 127, 165) THEN 'INT'
+            WHEN c.system_type_id IN (61, 109, 122) THEN 'DATETIME'
+            WHEN c.system_type_id = 104 THEN 'BIT'
+            ELSE 'VARCHAR(100)'
+        END + CASE 
+            WHEN c.is_nullable = 1 THEN ' '
+            ELSE ' '
+        END + ',' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName AND  column_id > 1
+
+    SET @sql = SUBSTRING(@sql, 1, LEN(@sql) - 3) + CHAR(13) + CHAR(10) + ' ' + CHAR(13) + CHAR(10)
+    + 'AS' + CHAR(13) + CHAR(10) 
+    + 'BEGIN' + CHAR(13) + CHAR(10) 
+	+'		SET NOCOUNT ON;' + CHAR(13) + CHAR(10) 
+    +'		DECLARE @Offset INT' + CHAR(13) + CHAR(10) 
+	+'		SET @Offset = (@pPagina - 1) * @pFilasPagina' + CHAR(13) + CHAR(10) + CHAR(13) + CHAR(10) 
+
+	+'		SELECT COUNT(*) AS TotalRegistros' + CHAR(13) + CHAR(10) 
+	+'		FROM ' +@tableName + CHAR(13) + CHAR(10) 
+	+'		WHERE  ' + CHAR(13) + CHAR(10) 
+
+
+	  SELECT @sql = @sql + '       ( @p' + c.name+ ' IS NULL OR @p' +c.name + ' = ''' +''''+ ' OR ' + c.name +'= @p'+c.name +')  AND ' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName  AND  column_id >1;
+
+	
+	SET @sql = SUBSTRING(@sql, 3, LEN(@sql) - 9) +  ';'+CHAR(13) + CHAR(10) +CHAR(13) + CHAR(10) 
+
+
+    set @sql = @sql + '    SELECT * FROM (' + CHAR(13) + CHAR(10)
+	
+	+ '			SELECT ROW_NUMBER() OVER (ORDER BY ID) AS NumeroFila, * ' + CHAR(13) + CHAR(10)
+	+'			FROM '+@tableName + ' '+ CHAR(13) + CHAR(10)
+	+'		WHERE  ' + CHAR(13) + CHAR(10) 
+
+
+	  SELECT @sql = @sql + '       ( @p' + c.name+ ' IS NULL OR @p' +c.name + ' = ''' +''''+ ' OR ' + c.name +'= @p'+c.name +')  AND ' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName  AND  column_id >1;
+
+	
+	SET @sql = SUBSTRING(@sql, 3, LEN(@sql) - 9) +CHAR(13) + CHAR(10) 
+	+'        ) AS TablaFiltrada '+CHAR(13) + CHAR(10) 
+	+'		WHERE NumeroFila > @Offset AND NumeroFila <= @Offset + @pFilasPagina;' + CHAR(13) + CHAR(10)
+
+
+    SET @sql = @sql +
+    + 'END;' + CHAR(13) + CHAR(10) + 'GO' + CHAR(13) + CHAR(10)
+
+
+    SELECT @sql;
+END
+
+
+
+USE [DB_CONTROL]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_GenerateEntityCode]    Script Date: 13/05/2023 18:48:14 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[usp_GenerateEntityCode]
+    @tableName VARCHAR(50)
+AS
+BEGIN
+
+ SET NOCOUNT ON;
+    
+    DECLARE @sql NVARCHAR(MAX) = ''
+
+	 SELECT @sql = @sql + 'using System;'+ CHAR(13) + CHAR(10)
+	 +'namespace Entidad'+ CHAR(13) + CHAR(10)
+	 +'{'+ CHAR(13) + CHAR(10)
+	 +' public class '+  UPPER(LEFT(REPLACE( @tableName,'_',''),1)) + LOWER(SUBSTRING(REPLACE( @tableName,'_',''),2,LEN(REPLACE( @tableName,'_',''))))  + CHAR(13) + CHAR(10)
+	 +'    {' + CHAR(13) + CHAR(10)
+
+    SELECT @sql = @sql + '        public '+
+	
+	
+	        CASE 
+            WHEN c.system_type_id IN (167, 175, 231, 239) THEN 'string'
+            WHEN c.system_type_id IN (56, 106, 108, 127, 165) THEN 'Int32'
+            WHEN c.system_type_id IN (61, 109, 122) THEN 'DateTime '
+            WHEN c.system_type_id = 104 THEN 'Boolean'
+            ELSE 'string'
+        END +' '
+	
+	
+	+ UPPER(LEFT(c.name,1)) + LOWER(SUBSTRING(c.name,2,LEN(c.name))) + ' {get; set; }' + CHAR(13) + CHAR(10)
+    FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName
+
+	 SET @sql = @sql + CHAR(13) + CHAR(10) 
+
+	 +'    }' + CHAR(13) + CHAR(10)
+	 +'}' + CHAR(13) + CHAR(10)
+
+
+	 select @sql
+
+
+END;
+
+
+USE [DB_CONTROL]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_GenerateDAOCode]    Script Date: 13/05/2023 18:48:10 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[usp_GenerateDAOCode]
+    @tableName VARCHAR(50)
+AS
+BEGIN
+
+ SET NOCOUNT ON;
+    
+    DECLARE @sql NVARCHAR(MAX) = ''
+
+	DECLARE @entity NVARCHAR(MAX)=''
+
+
+
+	SET @entity =UPPER(LEFT(REPLACE( @tableName,'_',''),1)) + LOWER(SUBSTRING(REPLACE( @tableName,'_',''),2,LEN(REPLACE( @tableName,'_',''))))
+
+	 SELECT @sql = @sql + 'using System;'+ CHAR(13) + CHAR(10)
+	 +'using System.Collections.Generic;' + CHAR(13) + CHAR(10)
+	 +'using System.Data;' + CHAR(13) + CHAR(10)
+	 +'using System.Data.SqlClient;' + CHAR(13) + CHAR(10)
+	 +'using Entidad;' + CHAR(13) + CHAR(10)
+	 +'using Utils;' + CHAR(13) + CHAR(10)+ CHAR(13) + CHAR(10)
+	 +'namespace Datos'+ CHAR(13) + CHAR(10)
+	 +'{'+ CHAR(13) + CHAR(10)
+	 +' public class DAO'+ @entity  + CHAR(13) + CHAR(10)
+	 +'    {' + CHAR(13) + CHAR(10)+ CHAR(13) + CHAR(10)
+	 
+	 +'        Logger<DAO'+@entity+'> logger = new Logger<DAO'+@entity+'>();'+ CHAR(13) + CHAR(10)
+	 +'        Conexion conexion = new Conexion();'+ CHAR(13) + CHAR(10)
+
+	 --METODO PAGINADO
+	 
+	 +'        public List<'+@entity+'> Paginacion(int pagina, int registros, '+@entity+' filtro, out int totalRegistros)' + CHAR(13) + CHAR(10)
+	 +'        {'+ CHAR(13) + CHAR(10)
+	 +'            List<'+@entity+'> listRespuesta = new List<'+@entity+'>();'+ CHAR(13) + CHAR(10)
+	 +'            int totReg = 0;'+ CHAR(13) + CHAR(10)+CHAR(13) + CHAR(10)
+	 +'            try' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.AbrirConexion();' + CHAR(13) + CHAR(10)
+	 +'                using(SqlCommand comando = conexion.CrearComando("USP_'+@tableName+'_PAGINATE'  +'"))' + CHAR(13) + CHAR(10)
+	 +'                {' + CHAR(13) + CHAR(10)
+	 +'                comando.CommandType = CommandType.StoredProcedure;' + CHAR(13) + CHAR(10)
+	 +'' + CHAR(13) + CHAR(10)
+	 +'                SqlDataReader reader = comando.ExecuteReader();' + CHAR(13) + CHAR(10)
+	 +'                if (reader.HasRows)' + CHAR(13) + CHAR(10)
+	 +'                {' + CHAR(13) + CHAR(10)
+	 +'                    reader.Read();' + CHAR(13) + CHAR(10)
+	 +'                    totReg = reader.GetInt32(0);' + CHAR(13) + CHAR(10)
+	 +'                    reader.NextResult();' + CHAR(13) + CHAR(10)
+	 +'                    while (reader.Read())' + CHAR(13) + CHAR(10)
+	 +'                    {' + CHAR(13) + CHAR(10)
+	 +'                        '+@entity+' obj = new '+@entity+'();' + CHAR(13) + CHAR(10)
+	
+	
+
+	  SELECT @sql = @sql + '                        obj.'+UPPER(LEFT(c.name,1)) + LOWER(SUBSTRING(c.name,2,LEN(c.name)))
+	  +' = ('+
+	  	        CASE 
+            WHEN c.system_type_id IN (167, 175, 231, 239) THEN 'string'
+            WHEN c.system_type_id IN (56, 106, 108, 127, 165) THEN 'Int32'
+            WHEN c.system_type_id IN (61, 109, 122) THEN 'DateTime '
+            WHEN c.system_type_id = 104 THEN 'Boolean'
+            ELSE 'string'
+        END +' '
+	  
+	  +')reader["' + c.name +'"];' + CHAR(13) + CHAR(10)
+	     FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName
+
+		 SET @sql = @sql + CHAR(13) + CHAR(10) 
+
+	 +'                        listRespuesta.Add(obj);' + CHAR(13) + CHAR(10)
+	 +'                    }' + CHAR(13) + CHAR(10)
+	 +'                 }' + CHAR(13) + CHAR(10)
+	 +'                }' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            catch (Exception ex)' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'                logger.Log(LogLevel.Error, ex.Message);' + CHAR(13) + CHAR(10)
+	 +'                throw ex;' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            totalRegistros = totReg;' + CHAR(13) + CHAR(10)
+	 +'            return listRespuesta;'+ CHAR(13) + CHAR(10)
+	 +'        }'+ CHAR(13) + CHAR(10)
+	 
+
+	 --METODO OBTENER
+	 
+	  SET @sql =@sql +''+ CHAR(13) + CHAR(10) 
+	  +'        public '+@entity+' Obtener(int id)' + CHAR(13) + CHAR(10)
+	 +'        {'+ CHAR(13) + CHAR(10)
+	 +'            '+@entity+' obj = new '+@entity+'();'+ CHAR(13) + CHAR(10)
+	 +'            try' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.AbrirConexion();' + CHAR(13) + CHAR(10)
+	 +'                using(SqlCommand comando = conexion.CrearComando("USP_'+@tableName+'_GETONE'  +'"))' + CHAR(13) + CHAR(10)
+	 +'                {' + CHAR(13) + CHAR(10)
+	 +'                comando.CommandType = CommandType.StoredProcedure;' + CHAR(13) + CHAR(10)
+	 +'' + CHAR(13) + CHAR(10)
+	 +'                SqlDataReader reader = comando.ExecuteReader();' + CHAR(13) + CHAR(10)
+	 +'                if (reader.HasRows)' + CHAR(13) + CHAR(10)
+	 +'                {' + CHAR(13) + CHAR(10)
+	 +'                    while (reader.Read())' + CHAR(13) + CHAR(10)
+	 +'                    {' + CHAR(13) + CHAR(10)
+	 +'                         obj = new '+@entity+'();' + CHAR(13) + CHAR(10)
+	
+	
+
+	  SELECT @sql = @sql + '                        obj.'+UPPER(LEFT(c.name,1)) + LOWER(SUBSTRING(c.name,2,LEN(c.name)))
+	  +' = ('+
+	  	        CASE 
+            WHEN c.system_type_id IN (167, 175, 231, 239) THEN 'string'
+            WHEN c.system_type_id IN (56, 106, 108, 127, 165) THEN 'Int32'
+            WHEN c.system_type_id IN (61, 109, 122) THEN 'DateTime '
+            WHEN c.system_type_id = 104 THEN 'Boolean'
+            ELSE 'string'
+        END +' '
+	  
+	  +')reader["' + c.name +'"];' + CHAR(13) + CHAR(10)
+	     FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName
+
+		 SET @sql = @sql + CHAR(13) + CHAR(10) 
+
+	 +'                    }' + CHAR(13) + CHAR(10)
+	 +'                 }' + CHAR(13) + CHAR(10)
+	 +'                }' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            catch (Exception ex)' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'                logger.Log(LogLevel.Error, ex.Message);' + CHAR(13) + CHAR(10)
+	 +'                throw ex;' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            return obj;'+ CHAR(13) + CHAR(10)
+	 +'        }'+ CHAR(13) + CHAR(10)
+	 
+
+	 	 --METODO INSERTAR
+		 
+	  SET @sql =@sql +''+ CHAR(13) + CHAR(10) 
+	  +'        public bool Insertar('+@entity+' obj)' + CHAR(13) + CHAR(10)
+	 +'        {'+ CHAR(13) + CHAR(10)
+	 +'            bool resp = false;'+ CHAR(13) + CHAR(10)
+	 +'            try' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.AbrirConexion();' + CHAR(13) + CHAR(10)
+	 +'                using(SqlCommand comando = conexion.CrearComando("USP_'+@tableName+'_INSERT'  +'"))' + CHAR(13) + CHAR(10)
+	 +'                {' + CHAR(13) + CHAR(10)
+	 +'						comando.CommandType = CommandType.StoredProcedure;' + CHAR(13) + CHAR(10)
+	
+
+	  SELECT @sql = @sql + '                        comando.Parameters.AddWithValue("@p'+c.name
+	  +'", obj.'+UPPER(LEFT(c.name,1)) + LOWER(SUBSTRING(c.name,2,LEN(c.name))) +');' + CHAR(13) + CHAR(10)
+	  
+	     FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName AND column_id >1
+
+		 SET @sql = @sql + CHAR(13) + CHAR(10) 
+
+	 +'                    comando.ExecuteNonQuery();' + CHAR(13) + CHAR(10)
+	 +'                }' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'                resp = true;' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            catch (Exception ex)' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'                logger.Log(LogLevel.Error, ex.Message);' + CHAR(13) + CHAR(10)
+	 +'                throw ex;' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            return resp;'+ CHAR(13) + CHAR(10)
+	 +'        }'+ CHAR(13) + CHAR(10)
+	 
+
+	 --METODO EDITAR
+	 
+	 SET @sql =@sql + CHAR(13) + CHAR(10) 
+	  +'        public bool Actualizar('+@entity+' obj)' + CHAR(13) + CHAR(10)
+	 +'        {'+ CHAR(13) + CHAR(10)
+	 +'            bool resp = false;'+ CHAR(13) + CHAR(10)
+	 +'            try' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.AbrirConexion();' + CHAR(13) + CHAR(10)
+	 +'                using(SqlCommand comando = conexion.CrearComando("USP_'+@tableName+'_UPDATE'  +'"))' + CHAR(13) + CHAR(10)
+	 +'                {' + CHAR(13) + CHAR(10)
+	 +'						comando.CommandType = CommandType.StoredProcedure;' + CHAR(13) + CHAR(10)
+	
+
+	  SELECT @sql = @sql + '                        comando.Parameters.AddWithValue("@p'+c.name
+	  +'", obj.'+UPPER(LEFT(c.name,1)) + LOWER(SUBSTRING(c.name,2,LEN(c.name))) +');' + CHAR(13) + CHAR(10)
+	  
+	     FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName 
+
+		 SET @sql = @sql + CHAR(13) + CHAR(10) 
+
+	 +'                    comando.ExecuteNonQuery();' + CHAR(13) + CHAR(10)
+	 +'                }' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'                resp = true;' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            catch (Exception ex)' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'                logger.Log(LogLevel.Error, ex.Message);' + CHAR(13) + CHAR(10)
+	 +'                throw ex;' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            return resp;'+ CHAR(13) + CHAR(10)
+	 +'        }'+ CHAR(13) + CHAR(10)
+
+	 
+	 	 --METODO ELIMINAR
+	 	  SET @sql =@sql +''+ CHAR(13) + CHAR(10) 
+	  +'        public bool Eliminar(int id)' + CHAR(13) + CHAR(10)
+	 +'        {'+ CHAR(13) + CHAR(10)
+	 +'            bool resp = false;'+ CHAR(13) + CHAR(10)
+	 +'            try' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.AbrirConexion();' + CHAR(13) + CHAR(10)
+	 +'                using(SqlCommand comando = conexion.CrearComando("USP_'+@tableName+'_DELETE'  +'"))' + CHAR(13) + CHAR(10)
+	 +'                {' + CHAR(13) + CHAR(10)
+	 +'						comando.CommandType = CommandType.StoredProcedure;' + CHAR(13) + CHAR(10)
+	
+
+	  SELECT @sql = @sql + '                        comando.Parameters.AddWithValue("@p'+c.name
+	  +'", id);' + CHAR(13) + CHAR(10)
+	  
+	     FROM sys.columns c
+    JOIN sys.tables t ON c.object_id = t.object_id
+    WHERE t.name = @tableName AND column_id =1
+
+		 SET @sql = @sql + CHAR(13) + CHAR(10) 
+
+	 +'                    comando.ExecuteNonQuery();' + CHAR(13) + CHAR(10)
+	 +'                }' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'                resp = true;' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            catch (Exception ex)' + CHAR(13) + CHAR(10)
+	 +'            {' + CHAR(13) + CHAR(10)
+	 +'                conexion.CerrarConexion();' + CHAR(13) + CHAR(10)
+	 +'                logger.Log(LogLevel.Error, ex.Message);' + CHAR(13) + CHAR(10)
+	 +'                throw ex;' + CHAR(13) + CHAR(10)
+	 +'            }' + CHAR(13) + CHAR(10)
+	 +'            return resp;'+ CHAR(13) + CHAR(10)
+	 +'        }'+ CHAR(13) + CHAR(10)
+
+
+	 SET @sql = @sql + CHAR(13) + CHAR(10)
+	 +'    }' + CHAR(13) + CHAR(10)
+	 +'}' + CHAR(13) + CHAR(10)
+
+
+	 INSERT INTO CODIGO (TABLA,NOMBRE,CODIGO)  VALUES(@tableName,@entity,@sql);
+
+	 SELECT @sql;
+
+
+END;
