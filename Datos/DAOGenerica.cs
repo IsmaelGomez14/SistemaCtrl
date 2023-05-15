@@ -5,11 +5,13 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Data;
 using System.Data.SqlClient;
+using Utils;
 
 namespace Datos
 {
     public class DAOGenerica
     {
+        Logger<DAODetalle> logger = new Logger<DAODetalle>();
         Conexion conexion = new Conexion();
         public int ObtenerTotalRegistros( string nombreTabla)
         {
@@ -29,7 +31,9 @@ namespace Datos
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                conexion.CerrarConexion();
+                logger.Log(LogLevel.Error, ex.Message);
+                throw ex;
             }
             return totalRegistros;
 
@@ -54,7 +58,9 @@ namespace Datos
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                conexion.CerrarConexion();
+                logger.Log(LogLevel.Error, ex.Message);
+                throw ex;
             }
 
             return codigo;
@@ -78,7 +84,9 @@ namespace Datos
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                conexion.CerrarConexion();
+                logger.Log(LogLevel.Error, ex.Message);
+                 throw ex;
             }
 
             return codigo;
@@ -102,7 +110,9 @@ namespace Datos
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                conexion.CerrarConexion();
+                logger.Log(LogLevel.Error, ex.Message);
+                throw ex;
             }
 
             return codigo;
@@ -132,7 +142,9 @@ namespace Datos
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                conexion.CerrarConexion();
+                logger.Log(LogLevel.Error, ex.Message);
+                throw ex;
             }
 
             return result;
